@@ -1,4 +1,4 @@
-package com.meowgram
+package com.meogramclient
 
 import android.app.Application
 import com.facebook.react.PackageList

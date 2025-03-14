@@ -1,4 +1,4 @@
-package com.meowgram
+package com.meogramclient;
 
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate

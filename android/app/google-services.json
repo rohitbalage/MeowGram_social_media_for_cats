@@ -7,6 +7,43 @@
   "client": [
     {
       "client_info": {
+        "mobilesdk_app_id": "1:69015713322:android:ea2b1189e9693fcd4e7553",
+        "android_client_info": {
+          "package_name": "com.meogramclient"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "69015713322-36rq511suok2icpoure4so5o32n623ua.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.meogramclient",
+            "certificate_hash": "5e8f16062ea3cd2c4a0d547876baa6f38cabf625"
+          }
+        },
+        {
+          "client_id": "69015713322-qo030jfanu33heijpugg8417n5kha5bo.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyATRSQAnw7A-Ipdboaey1cTwT_ABPx73tE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "69015713322-qo030jfanu33heijpugg8417n5kha5bo.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    },
+    {
+      "client_info": {
         "mobilesdk_app_id": "1:69015713322:android:72260a0ae55bd20d4e7553",
         "android_client_info": {
           "package_name": "com.meowgram"
