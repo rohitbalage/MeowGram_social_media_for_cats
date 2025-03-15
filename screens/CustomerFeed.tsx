@@ -8,14 +8,15 @@ import {
   TouchableOpacity, 
   Alert,
   ActivityIndicator,
-  Dimensions
+  Dimensions,
+  NativeSyntheticEvent,
+  NativeScrollEvent
 } from 'react-native';
 import { collection, query, orderBy, getDocs, getDoc, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 
-// TypeScript interfaces
 interface Post {
   id: string;
   catpictures: string[];
@@ -28,8 +29,6 @@ interface Merchant {
   storeName: string;
   profilePicURL: string;
   storeDesc?: string;
-  email?: string;
-  coverPicURL?: string;
 }
 
 type RootStackParamList = {
@@ -38,32 +37,43 @@ type RootStackParamList = {
 
 const { width: screenWidth } = Dimensions.get('window');
 
-// Separate component for image rendering
 const ImageItem = ({ uri }: { uri: string }) => {
   const [imageLoading, setImageLoading] = useState(true);
 
   if (!uri?.startsWith('http')) {
-    console.log('Invalid image URL:', uri);
     return null;
   }
 
   return (
     <View style={styles.imageContainer}>
       {imageLoading && (
-        <ActivityIndicator 
-          style={styles.loadingIndicator} 
-          color="#FFA500" 
-        />
+        <ActivityIndicator style={styles.loadingIndicator} color="#FFA500" />
       )}
       <Image
         source={{ uri }}
         style={styles.postImage}
         resizeMode="cover"
         onLoadEnd={() => setImageLoading(false)}
-        onError={(error) => 
-          console.log('Image load error:', error.nativeEvent.error)
-        }
+        onError={() => setImageLoading(false)}
       />
+    </View>
+  );
+};
+
+const PaginationDots = ({ count, activeIndex }: { count: number; activeIndex: number }) => {
+  if (count <= 1) return null;
+  
+  return (
+    <View style={styles.paginationContainer}>
+      {Array.from({ length: count }).map((_, index) => (
+        <View
+          key={index}
+          style={[
+            styles.paginationDot,
+            index === activeIndex && styles.activeDot
+          ]}
+        />
+      ))}
     </View>
   );
 };
@@ -73,6 +83,7 @@ const CustomerFeed = () => {
   const [merchants, setMerchants] = useState<{ [key: string]: Merchant }>({});
   const [loading, setLoading] = useState(true);
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  const [activeIndices, setActiveIndices] = useState<{ [key: string]: number }>({});
 
   useEffect(() => {
     const fetchData = async () => {
@@ -88,12 +99,9 @@ const CustomerFeed = () => {
         
         querySnapshot.forEach(doc => {
           const data = doc.data();
-          if (!data.catpictures || !Array.isArray(data.catpictures)) {
-            console.warn(`Post ${doc.id} has invalid catpictures array`);
-            return;
-          }
-          if (data.mid) merchantIds.add(data.mid);
+          if (!data.catpictures) return;
           
+          merchantIds.add(data.mid);
           postsData.push({
             id: doc.id,
             catpictures: data.catpictures.filter((url: string) => url?.startsWith('http')),
@@ -104,26 +112,20 @@ const CustomerFeed = () => {
         });
 
         const merchantPromises = Array.from(merchantIds).map(async (mid) => {
-          try {
-            const merchantRef = doc(db, 'Merchants', mid);
-            const merchantSnap = await getDoc(merchantRef);
-            return { mid, data: merchantSnap.data() as Merchant };
-          } catch (error) {
-            console.error(`Error fetching merchant ${mid}:`, error);
-            return null;
-          }
+          const merchantRef = doc(db, 'merchants', mid);
+          const merchantSnap = await getDoc(merchantRef);
+          return { mid, data: merchantSnap.data() as Merchant };
         });
 
         const merchantResults = await Promise.all(merchantPromises);
-        merchantResults.forEach(result => {
-          if (result?.data) merchantsData[result.mid] = result.data;
+        merchantResults.forEach(({ mid, data }) => {
+          if (data) merchantsData[mid] = data;
         });
 
         setMerchants(merchantsData);
         setPosts(postsData);
       } catch (error) {
-        console.error('Fetch error:', error);
-        Alert.alert('Error', 'Failed to load posts. Please try again later.');
+        Alert.alert('Error', 'Failed to load posts');
       } finally {
         setLoading(false);
       }
@@ -132,47 +134,53 @@ const CustomerFeed = () => {
     fetchData();
   }, []);
 
-  const handleBuy = (price: number) => {
-    const total = price + 1;
-    navigation.navigate('Payment', { price, total });
-  };
+  const handleScroll = (postId: string) => 
+    (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+      const contentOffsetX = event.nativeEvent.contentOffset.x;
+      const index = Math.round(contentOffsetX / screenWidth);
+      setActiveIndices(prev => ({ ...prev, [postId]: index }));
+    };
 
   const renderPostItem = ({ item }: { item: Post }) => {
-    const merchant = merchants[item.mid] || {} as Merchant;
-
-    if (!item.catpictures?.length) return null;
+    const merchant = merchants[item.mid] || { storeName: 'Unknown Store' };
+    const activeIndex = activeIndices[item.id] || 0;
 
     return (
       <View style={styles.postContainer}>
+        {/* Store Header */}
         <View style={styles.headerContainer}>
           <Image
-            source={{ 
-              uri: merchant.profilePicURL?.startsWith('http') 
-                ? merchant.profilePicURL 
-                : 'https://via.placeholder.com/40'
-            }}
+            source={{ uri: merchant.profilePicURL || 'https://via.placeholder.com/40' }}
             style={styles.profileImage}
           />
-          <View>
-            <Text style={styles.storeName}>
-              {merchant.storeName || 'Unknown Store'}
-            </Text>
+          <View style={styles.storeInfo}>
+            <Text style={styles.storeName}>{merchant.storeName}</Text>
             {merchant.storeDesc && (
               <Text style={styles.storeDesc}>{merchant.storeDesc}</Text>
             )}
           </View>
         </View>
 
-        <FlatList
-          horizontal
-          pagingEnabled
-          data={item.catpictures}
-          keyExtractor={(_, index) => `${item.id}-${index}`}
-          renderItem={({ item }) => <ImageItem uri={item} />}
-          showsHorizontalScrollIndicator={false}
-          style={styles.carousel}
-        />
+        {/* Image Carousel */}
+        <View>
+          <FlatList
+            horizontal
+            pagingEnabled
+            data={item.catpictures}
+            keyExtractor={(_, index) => `${item.id}-${index}`}
+            renderItem={({ item }) => <ImageItem uri={item} />}
+            showsHorizontalScrollIndicator={false}
+            style={styles.carousel}
+            onScroll={handleScroll(item.id)}
+            scrollEventThrottle={16}
+          />
+          <PaginationDots 
+            count={item.catpictures.length} 
+            activeIndex={activeIndex} 
+          />
+        </View>
 
+        {/* Price and Actions */}
         <View style={styles.priceContainer}>
           <Text style={styles.priceText}>${item.price.toFixed(2)}</Text>
         </View>
@@ -180,7 +188,10 @@ const CustomerFeed = () => {
         <View style={styles.actionsContainer}>
           <TouchableOpacity
             style={[styles.button, styles.buyButton]}
-            onPress={() => handleBuy(item.price)}
+            onPress={() => navigation.navigate('Payment', { 
+              price: item.price, 
+              total: item.price + 1 
+            })}
           >
             <Text style={styles.buttonText}>
               Buy Now (${(item.price + 1).toFixed(2)})
@@ -189,7 +200,7 @@ const CustomerFeed = () => {
 
           <TouchableOpacity
             style={[styles.button, styles.cartButton]}
-            onPress={() => Alert.alert('Success', 'Item added to cart!')}
+            onPress={() => Alert.alert('Added to Cart')}
           >
             <Text style={styles.buttonText}>Add to Cart</Text>
           </TouchableOpacity>
@@ -213,11 +224,6 @@ const CustomerFeed = () => {
       keyExtractor={item => item.id}
       contentContainerStyle={styles.container}
       showsVerticalScrollIndicator={false}
-      ListEmptyComponent={
-        <View style={styles.emptyContainer}>
-          <Text>No cat pictures available 😿</Text>
-        </View>
-      }
     />
   );
 };
@@ -231,40 +237,42 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  emptyContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 50,
-  },
   postContainer: {
     backgroundColor: 'white',
     marginBottom: 20,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderRadius: 12,
+    overflow: 'hidden',
+    elevation: 3,
+    marginHorizontal: 10,
   },
   headerContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     padding: 15,
+    backgroundColor: '#fff',
   },
   profileImage: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 50,
+    height: 50,
+    borderRadius: 25,
     marginRight: 12,
+    borderWidth: 1,
+    borderColor: '#eee',
+  },
+  storeInfo: {
+    flex: 1,
   },
   storeName: {
     fontSize: 16,
-    fontWeight: 'bold',
+    fontWeight: '600',
+    color: '#333',
   },
   storeDesc: {
     fontSize: 12,
     color: '#666',
-    maxWidth: screenWidth - 72,
+    marginTop: 2,
   },
   carousel: {
-    width: screenWidth,
     height: 400,
   },
   imageContainer: {
@@ -280,19 +288,18 @@ const styles = StyleSheet.create({
     ...StyleSheet.absoluteFillObject,
   },
   priceContainer: {
-    paddingHorizontal: 15,
-    paddingVertical: 10,
+    padding: 15,
+    borderBottomWidth: 1,
+    borderBottomColor: '#eee',
   },
   priceText: {
     fontSize: 18,
-    fontWeight: 'bold',
+    fontWeight: '700',
     color: '#FFA500',
   },
   actionsContainer: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingHorizontal: 15,
-    paddingBottom: 15,
+    padding: 15,
     gap: 10,
   },
   button: {
@@ -310,6 +317,23 @@ const styles = StyleSheet.create({
   buttonText: {
     color: 'white',
     fontWeight: '600',
+  },
+  paginationContainer: {
+    position: 'absolute',
+    bottom: 10,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    width: '100%',
+  },
+  paginationDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: 'rgba(255,255,255,0.4)',
+    marginHorizontal: 4,
+  },
+  activeDot: {
+    backgroundColor: '#FFA500',
   },
 });
 
