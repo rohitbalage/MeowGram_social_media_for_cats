@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
-import { auth, db, storage } from '../firebase';
-import { createUserWithEmailAndPassword } from 'firebase/auth';
-import { doc, setDoc } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { launchImageLibrary } from 'react-native-image-picker';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { doc, setDoc } from 'firebase/firestore';
+import { auth, db, storage } from '../firebase';
+import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 
 type AuthStackParamList = {
@@ -13,11 +14,7 @@ type AuthStackParamList = {
   Signup: undefined;
 };
 
-type SignupScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Signup'>;
-
-interface Props {
-  navigation: SignupScreenNavigationProp;
-}
+type NavigationProp = StackNavigationProp<AuthStackParamList, 'Signup'>;
 
 const catBreeds = [
   'Siamese',
@@ -32,7 +29,9 @@ const catBreeds = [
   'Russian Blue'
 ];
 
-const SignupScreen: React.FC<Props> = ({ navigation }) => {
+const SignupScreen = () => {
+  const navigation = useNavigation<NavigationProp>();
+  
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
@@ -43,18 +42,9 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
   const [loading, setLoading] = useState(false);
 
   const selectProfilePicture = async () => {
-    try {
-      const response = await launchImageLibrary({
-        mediaType: 'photo',
-        quality: 0.8,
-        includeBase64: false,
-      });
-
-      if (response.assets?.[0]?.uri) {
-        setProfilePic(response.assets[0].uri);
-      }
-    } catch (error) {
-      Alert.alert('Error', 'Failed to select profile picture');
+    const result = await launchImageLibrary({ mediaType: 'photo' });
+    if (!result.didCancel && result.assets?.[0]?.uri) {
+      setProfilePic(result.assets[0].uri);
     }
   };
 
@@ -72,23 +62,21 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
     try {
       setLoading(true);
       
-      // Create user with email/password
+      // Create user
       const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
+      // Upload image
       let profilePicURL = '';
       if (profilePic && user) {
-        // Convert image to blob
         const response = await fetch(profilePic);
         const blob = await response.blob();
-        
-        // Upload to Firebase Storage
         const storageRef = ref(storage, `customer_profiles/${user.uid}`);
         await uploadBytes(storageRef, blob);
         profilePicURL = await getDownloadURL(storageRef);
       }
 
-      // Create user document in Firestore
+      // Create Firestore document
       await setDoc(doc(db, 'Customers', user.uid), {
         cid: user.uid,
         name,
@@ -101,23 +89,10 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
 
       Alert.alert('Success', 'Account created successfully!');
       navigation.navigate('Login');
+      
     } catch (error: any) {
-      let errorMessage = 'Registration failed. Please try again.';
-      switch (error.code) {
-        case 'auth/email-already-in-use':
-          errorMessage = 'Email address is already in use!';
-          break;
-        case 'auth/invalid-email':
-          errorMessage = 'Invalid email address format!';
-          break;
-        case 'auth/weak-password':
-          errorMessage = 'Password should be at least 6 characters!';
-          break;
-        case 'auth/network-request-failed':
-          errorMessage = 'Network error. Please check your internet connection.';
-          break;
-      }
-      Alert.alert('Error', errorMessage);
+      console.error('Signup error:', error);
+      Alert.alert('Error', error.message);
     } finally {
       setLoading(false);
     }
@@ -127,95 +102,40 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
     <ScrollView contentContainerStyle={styles.container}>
       <Text style={styles.title}>Create Customer Account</Text>
 
-      <TouchableOpacity style={styles.profilePicContainer} onPress={selectProfilePicture}>
+      <TouchableOpacity style={styles.imagePicker} onPress={selectProfilePicture}>
         {profilePic ? (
-          <Image source={{ uri: profilePic }} style={styles.profilePic} />
+          <Image source={{ uri: profilePic }} style={styles.profileImage} />
         ) : (
-          <Text style={styles.profilePicText}>Add Profile Picture</Text>
+          <Text style={styles.imagePickerText}>Add Profile Picture</Text>
         )}
       </TouchableOpacity>
 
-      <TextInput
-        style={styles.input}
-        placeholder="Full Name"
-        value={name}
-        onChangeText={setName}
-        placeholderTextColor="#666"
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Email"
-        value={email}
-        onChangeText={setEmail}
-        autoCapitalize="none"
-        keyboardType="email-address"
-        placeholderTextColor="#666"
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Password"
-        value={password}
-        onChangeText={setPassword}
-        secureTextEntry
-        placeholderTextColor="#666"
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Confirm Password"
-        value={confirmPassword}
-        onChangeText={setConfirmPassword}
-        secureTextEntry
-        placeholderTextColor="#666"
-      />
-
-      <TextInput
-        style={styles.input}
-        placeholder="Address"
-        value={address}
-        onChangeText={setAddress}
-        placeholderTextColor="#666"
-      />
+      <TextInput style={styles.input} placeholder="Full Name" value={name} onChangeText={setName} />
+      <TextInput style={styles.input} placeholder="Email" value={email} onChangeText={setEmail} autoCapitalize="none" />
+      <TextInput style={styles.input} placeholder="Password" value={password} onChangeText={setPassword} secureTextEntry />
+      <TextInput style={styles.input} placeholder="Confirm Password" value={confirmPassword} onChangeText={setConfirmPassword} secureTextEntry />
+      <TextInput style={styles.input} placeholder="Address" value={address} onChangeText={setAddress} />
 
       <View style={styles.pickerContainer}>
         <Picker
           selectedValue={preferredCatType}
-          onValueChange={(itemValue) => setPreferredCatType(itemValue)}
+          onValueChange={setPreferredCatType}
           style={styles.picker}
           dropdownIconColor="#FFA500"
-          mode="dropdown"
         >
-          <Picker.Item 
-            label="Select Preferred Cat Type" 
-            value={null}
-            enabled={false}
-            style={styles.pickerHeaderItem}
-          />
-          {catBreeds.map((breed) => (
-            <Picker.Item 
-              key={breed} 
-              label={breed} 
-              value={breed}
-              style={styles.pickerItem}
-            />
+          <Picker.Item label="Select Preferred Cat Type" value={null} />
+          {catBreeds.map(breed => (
+            <Picker.Item key={breed} label={breed} value={breed} />
           ))}
         </Picker>
       </View>
 
-      <TouchableOpacity 
-        style={styles.button} 
-        onPress={handleSignup}
-        disabled={loading}
-      >
-        <Text style={styles.buttonText}>
-          {loading ? 'Creating account...' : 'Sign Up'}
-        </Text>
+      <TouchableOpacity style={styles.button} onPress={handleSignup} disabled={loading}>
+        <Text style={styles.buttonText}>{loading ? 'Creating Account...' : 'Sign Up'}</Text>
       </TouchableOpacity>
 
-      <TouchableOpacity onPress={() => navigation.goBack()}>
-        <Text style={styles.link}>Already have an account? Login here</Text>
+      <TouchableOpacity style={styles.secondaryButton} onPress={() => navigation.navigate('Login')}>
+        <Text style={styles.buttonText}>Already have an account? Login</Text>
       </TouchableOpacity>
     </ScrollView>
   );
@@ -224,36 +144,34 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
-    padding: 20,
+    padding: 25,
     backgroundColor: '#fff',
   },
   title: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
     color: '#FFA500',
     textAlign: 'center',
-    marginBottom: 20,
+    marginBottom: 30,
   },
-  profilePicContainer: {
-    width: 150,
+  imagePicker: {
+    width: '100%',
     height: 150,
-    borderRadius: 75,
     backgroundColor: '#f0f0f0',
-    alignSelf: 'center',
+    borderRadius: 12,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
-    borderWidth: 2,
-    borderColor: '#FFA500',
+    borderWidth: 1,
+    borderColor: '#ddd',
   },
-  profilePic: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 75,
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
   },
-  profilePicText: {
-    color: '#FFA500',
-    textAlign: 'center',
+  imagePickerText: {
+    color: '#666',
     fontSize: 16,
   },
   input: {
@@ -261,50 +179,36 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
-    padding: 15,
+    paddingHorizontal: 15,
     marginBottom: 15,
     fontSize: 16,
-    backgroundColor: '#fff',
-    color: '#333',
   },
   pickerContainer: {
     borderWidth: 1,
     borderColor: '#ddd',
     borderRadius: 8,
     marginBottom: 15,
-    overflow: 'hidden',
   },
   picker: {
     height: 50,
-    width: '100%',
-    backgroundColor: '#fff',
-  },
-  pickerHeaderItem: {
-    color: '#999',
-    fontSize: 16,
-  },
-  pickerItem: {
-    color: '#333',
-    fontSize: 16,
   },
   button: {
     backgroundColor: '#FFA500',
-    padding: 15,
+    height: 50,
     borderRadius: 8,
+    justifyContent: 'center',
     alignItems: 'center',
-    marginVertical: 15,
+    marginVertical: 10,
+  },
+  secondaryButton: {
+    backgroundColor: 'transparent',
+    borderWidth: 1,
+    borderColor: '#FFA500',
   },
   buttonText: {
-    color: 'white',
+    color: '#fff',
+    fontSize: 16,
     fontWeight: '600',
-    fontSize: 16,
-  },
-  link: {
-    color: '#FFA500',
-    textAlign: 'center',
-    marginTop: 10,
-    fontSize: 16,
-    fontWeight: '500',
   },
 });
 
