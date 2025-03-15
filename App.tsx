@@ -10,6 +10,7 @@ import CustomerCart from './screens/CustomerCart';
 import CustomerDashboard from './screens/CustomerDashboard';
 import CustomerFeed from './screens/CustomerFeed';
 import CustomerStores from './screens/CustomerStores';
+import PaymentScreen from './screens/PaymentScreen';
 
 const Stack = createStackNavigator();
 
@@ -23,6 +24,7 @@ export default function App() {
         <Stack.Screen name="CustomerDashboard" component={CustomerDashboard} options= {{gestureEnabled: false}}  />
         <Stack.Screen name="CustomerFeed" component={CustomerFeed} options= {{gestureEnabled: false}}  />
         <Stack.Screen name="CustomerStores" component={CustomerStores} options= {{gestureEnabled: false}} />
+        <Stack.Screen name="Payment" component={PaymentScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );
