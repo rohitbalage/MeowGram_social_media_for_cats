@@ -4,10 +4,12 @@ import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'reac
 import { auth } from '../firebase';
 import { signInWithEmailAndPassword } from 'firebase/auth';
 import { StackNavigationProp } from '@react-navigation/stack';
+import CustomerDashboard from './CustomerDashboard';
 
 type AuthStackParamList = {
   Login: undefined;
   Signup: undefined;
+  CustomerDashboard: undefined;  
 };
 
 type LoginScreenNavigationProp = StackNavigationProp<AuthStackParamList, 'Login'>;
@@ -30,7 +32,7 @@ const LoginScreen: React.FC<Props> = ({ navigation }) => {
     try {
       setLoading(true);
       await signInWithEmailAndPassword(auth, email, password);
-      Alert.alert('Success', 'Logged in successfully!');
+      navigation.navigate('CustomerDashboard')
     } catch (error: any) {
       Alert.alert('Error', error.message);
     } finally {

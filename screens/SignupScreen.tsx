@@ -12,6 +12,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 type AuthStackParamList = {
   Login: undefined;
   Signup: undefined;
+  CustomerDashboard: undefined;  
 };
 
 type NavigationProp = StackNavigationProp<AuthStackParamList, 'Signup'>;
@@ -88,7 +89,7 @@ const SignupScreen = () => {
       });
 
       Alert.alert('Success', 'Account created successfully!');
-      navigation.navigate('Login');
+      navigation.navigate('CustomerDashboard');
       
     } catch (error: any) {
       console.error('Signup error:', error);
