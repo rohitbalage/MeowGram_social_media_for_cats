@@ -1,11 +1,12 @@
-// screens/SignupScreen.tsx
 import React, { useState } from 'react';
 import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert, Image, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 import { auth, db, storage } from '../firebase';
+import { createUserWithEmailAndPassword } from 'firebase/auth';
+import { doc, setDoc } from 'firebase/firestore';
+import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { launchImageLibrary } from 'react-native-image-picker';
 import { StackNavigationProp } from '@react-navigation/stack';
-import firestore from '@react-native-firebase/firestore';
 
 type AuthStackParamList = {
   Login: undefined;
@@ -72,41 +73,49 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
       setLoading(true);
       
       // Create user with email/password
-      const userCredential = await auth().createUserWithEmailAndPassword(email, password);
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
       const user = userCredential.user;
 
       let profilePicURL = '';
       if (profilePic && user) {
-        // Upload profile picture to storage
-        const storageReference = storage().ref(`customer_profiles/${user.uid}`);
-        await storageReference.putFile(profilePic);
-        profilePicURL = await storageReference.getDownloadURL();
+        // Convert image to blob
+        const response = await fetch(profilePic);
+        const blob = await response.blob();
+        
+        // Upload to Firebase Storage
+        const storageRef = ref(storage, `customer_profiles/${user.uid}`);
+        await uploadBytes(storageRef, blob);
+        profilePicURL = await getDownloadURL(storageRef);
       }
 
       // Create user document in Firestore
-      await db()
-        .collection('Customers')
-        .doc(user.uid)
-        .set({
-          cid: user.uid,
-          name: name,
-          email: email,
-          address: address,
-          preferredCatType: preferredCatType,
-          profilePicURL: profilePicURL,
-          createdAt: firestore.FieldValue.serverTimestamp(),
-        });
+      await setDoc(doc(db, 'Customers', user.uid), {
+        cid: user.uid,
+        name,
+        email,
+        address,
+        preferredCatType,
+        profilePicURL,
+        createdAt: new Date(),
+      });
 
       Alert.alert('Success', 'Account created successfully!');
       navigation.navigate('Login');
     } catch (error: any) {
       let errorMessage = 'Registration failed. Please try again.';
-      if (error.code === 'auth/email-already-in-use') {
-        errorMessage = 'Email address is already in use!';
-      } else if (error.code === 'auth/invalid-email') {
-        errorMessage = 'Invalid email address format!';
-      } else if (error.code === 'auth/weak-password') {
-        errorMessage = 'Password should be at least 6 characters!';
+      switch (error.code) {
+        case 'auth/email-already-in-use':
+          errorMessage = 'Email address is already in use!';
+          break;
+        case 'auth/invalid-email':
+          errorMessage = 'Invalid email address format!';
+          break;
+        case 'auth/weak-password':
+          errorMessage = 'Password should be at least 6 characters!';
+          break;
+        case 'auth/network-request-failed':
+          errorMessage = 'Network error. Please check your internet connection.';
+          break;
       }
       Alert.alert('Error', errorMessage);
     } finally {
@@ -212,7 +221,6 @@ const SignupScreen: React.FC<Props> = ({ navigation }) => {
   );
 };
 
-// Keep all the StyleSheet definitions exactly the same
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
