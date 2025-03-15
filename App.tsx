@@ -11,8 +11,20 @@ import CustomerDashboard from './screens/CustomerDashboard';
 import CustomerFeed from './screens/CustomerFeed';
 import CustomerStores from './screens/CustomerStores';
 import PaymentScreen from './screens/PaymentScreen';
+import MerchantProfile from './screens/MerchantProfile';
 
-const Stack = createStackNavigator();
+// Define your root stack param list
+type RootStackParamList = {
+  Login: undefined;
+  Signup: undefined;
+  CustomerCart: undefined;
+  CustomerDashboard: undefined;
+  CustomerFeed: undefined;
+  CustomerStores: undefined;
+  Payment: { price: number; total: number };
+  MerchantProfile: { merchantId: string };
+};
+const Stack = createStackNavigator<RootStackParamList>();
 
 export default function App() {
   return (
@@ -24,7 +36,14 @@ export default function App() {
         <Stack.Screen name="CustomerDashboard" component={CustomerDashboard} options= {{gestureEnabled: false}}  />
         <Stack.Screen name="CustomerFeed" component={CustomerFeed} options= {{gestureEnabled: false}}  />
         <Stack.Screen name="CustomerStores" component={CustomerStores} options= {{gestureEnabled: false}} />
-        <Stack.Screen name="Payment" component={PaymentScreen} />
+        <Stack.Screen 
+          name="Payment" 
+          component={PaymentScreen}
+          options={({ route }) => ({
+            title: `Payment - $${route.params.total.toFixed(2)}`
+          })}
+        />
+        <Stack.Screen name="MerchantProfile" component={MerchantProfile} />
       </Stack.Navigator>
     </NavigationContainer>
   );
