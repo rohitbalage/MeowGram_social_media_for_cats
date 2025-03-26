@@ -3,93 +3,102 @@ import { View, Text, StyleSheet, Image, TouchableOpacity, Alert, Linking, Scroll
 import { signOut } from 'firebase/auth';
 import { auth } from '../firebase';
 import Icon from 'react-native-vector-icons/MaterialCommunityIcons';
+import { NativeStackScreenProps } from '@react-navigation/native-stack';
+import { RootStackParamList } from '../navigation/types'; // Adjust import path
 
-export default function CustomerSettings({ navigation }) {
+type Props = NativeStackScreenProps<RootStackParamList, 'CustomerSettings'>;
+
+const CustomerSettings: React.FC<Props> = ({ navigation }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      navigation.navigate('Login');
+      navigation.reset({
+        index: 0,
+        routes: [{ name: 'Login' }],
+      });
     } catch (error) {
-      Alert.alert('Error', 'Failed to logout');
+      Alert.alert('Error', 'Failed to logout. Please try again.');
     }
   };
 
-  const openSocialMedia = (url: string) => {
-    Linking.openURL(url).catch(() => {
-      Alert.alert('Error', 'Could not open link');
-    });
+  const handleSocialMedia = async (url: string) => {
+    try {
+      await Linking.openURL(url);
+    } catch (error) {
+      Alert.alert('Error', 'Could not open link. Please check your internet connection.');
+    }
   };
 
-  const contactSupport = () => {
+  const handleContactSupport = () => {
     Alert.alert(
       'Customer Support',
       'Email: support@meowgram.com\nPhone: +1 (800) 555-CATS',
-      [
-        { text: 'OK', style: 'cancel' }
-      ]
+      [{ text: 'OK', style: 'cancel' }]
     );
   };
 
   return (
     <ScrollView contentContainerStyle={styles.container}>
       <Image 
-        source={{ uri: 'https://s6.gifyu.com/images/bb10E.gif' }} // Replace with actual URL
+        source={{ uri: 'https://s6.gifyu.com/images/bb10E.gif' }}
         style={styles.coverImage}
+        resizeMode="cover"
       />
       
       <View style={styles.content}>
-        {/* Social Media Links */}
-        <TouchableOpacity 
-          style={styles.optionItem}
-          onPress={() => openSocialMedia('https://facebook.com/meowgram')}
-        >
-          <Icon name="facebook" size={24} color="#1877F2" />
-          <Text style={styles.optionText}>Facebook</Text>
-        </TouchableOpacity>
+        {/* Social Connections */}
+        <SocialButton
+          icon="facebook"
+          color="#1877F2"
+          text="Facebook"
+          onPress={() => handleSocialMedia('https://facebook.com/meowgram')}
+        />
 
-        <TouchableOpacity 
-          style={styles.optionItem}
-          onPress={() => openSocialMedia('https://instagram.com/meowgram')}
-        >
-          <Icon name="instagram" size={24} color="#E4405F" />
-          <Text style={styles.optionText}>Instagram</Text>
-        </TouchableOpacity>
+        <SocialButton
+          icon="instagram"
+          color="#E4405F"
+          text="Instagram"
+          onPress={() => handleSocialMedia('https://instagram.com/meowgram')}
+        />
 
-        {/* Contact Support */}
-        <TouchableOpacity 
-          style={styles.optionItem}
-          onPress={contactSupport}
-        >
-          <Icon name="headset" size={24} color="#FFA500" />
-          <Text style={styles.optionText}>24/7 Customer Support</Text>
-        </TouchableOpacity>
+        {/* Support Section */}
+        <SocialButton
+          icon="headset"
+          color="#FFA500"
+          text="24/7 Customer Support"
+          onPress={handleContactSupport}
+        />
 
-        {/* Donation */}
-        <TouchableOpacity 
-          style={styles.optionItem}
-          onPress={() => openSocialMedia('https://donate.meowgram.com')}
-        >
-          <Icon name="heart-outline" size={24} color="#FF4444" />
-          <Text style={styles.optionText}>Support Cat Shelters</Text>
-        </TouchableOpacity>
+        <SocialButton
+          icon="heart-outline"
+          color="#FF4444"
+          text="Support Cat Shelters"
+          onPress={() => handleSocialMedia('https://donate.meowgram.com')}
+        />
 
-        {/* Merchandise */}
-        <TouchableOpacity 
-          style={styles.optionItem}
-          onPress={() => openSocialMedia('https://shop.meowgram.com')}
-        >
-          <Icon name="shopping" size={24} color="#4CAF50" />
-          <Text style={styles.optionText}>Official Merchandise</Text>
-        </TouchableOpacity>
+        {/* Cat Management */}
+        <SocialButton
+          icon="cat"
+          color="#4CAF50"
+          text="Add Your Cat"
+          onPress={() => navigation.navigate('AddYourCats')}
+        />
 
-        {/* Account Settings */}
-        <TouchableOpacity 
-          style={styles.optionItem}
+        {/* Shopping */}
+        <SocialButton
+          icon="shopping"
+          color="#4CAF50"
+          text="Official Merchandise"
+          onPress={() => handleSocialMedia('https://shop.meowgram.com')}
+        />
+
+        {/* Account Management */}
+        <SocialButton
+          icon="account-cog"
+          color="#FFA500"
+          text="Account Settings"
           onPress={() => navigation.navigate('AccountSettings')}
-        >
-          <Icon name="account-cog" size={24} color="#FFA500" />
-          <Text style={styles.optionText}>Account Settings</Text>
-        </TouchableOpacity>
+        />
 
         {/* Logout */}
         <TouchableOpacity 
@@ -102,8 +111,22 @@ export default function CustomerSettings({ navigation }) {
       </View>
     </ScrollView>
   );
-}
+};
 
+// Reusable Social Button Component
+const SocialButton: React.FC<{
+  icon: string;
+  color: string;
+  text: string;
+  onPress: () => void;
+}> = ({ icon, color, text, onPress }) => (
+  <TouchableOpacity style={styles.optionItem} onPress={onPress}>
+    <Icon name={icon} size={24} color={color} />
+    <Text style={styles.optionText}>{text}</Text>
+  </TouchableOpacity>
+);
+
+// Styles remain the same as original
 const styles = StyleSheet.create({
   container: {
     flexGrow: 1,
@@ -137,3 +160,5 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
 });
+
+export default CustomerSettings;
